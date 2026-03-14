@@ -2,13 +2,178 @@ import os
 import fitz
 import streamlit as st
 
+# =========================
+# PAGE CONFIG
+# =========================
+st.set_page_config(
+    page_title="Easy PDF Editor",
+    page_icon="📄",
+    layout="wide"
+)
+
+# =========================
+# FOLDERS
+# =========================
 UPLOAD_FOLDER = "uploads"
 OUTPUT_FOLDER = "outputs"
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
+# =========================
+# CUSTOM CSS
+# =========================
+st.markdown("""
+<style>
+    .stApp {
+        background: linear-gradient(135deg, #f7f8fc 0%, #eef2f7 100%);
+    }
 
+    .main-title {
+        font-size: 3rem;
+        font-weight: 800;
+        color: #1f2937;
+        text-align: center;
+        margin-top: 10px;
+        margin-bottom: 8px;
+        letter-spacing: -0.5px;
+    }
+
+    .sub-title {
+        text-align: center;
+        color: #6b7280;
+        font-size: 1rem;
+        margin-bottom: 30px;
+    }
+
+    .hero-card {
+        background: #ffffff;
+        border-radius: 24px;
+        padding: 32px 28px 22px 28px;
+        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        margin-bottom: 24px;
+    }
+
+    .mini-badge {
+        display: inline-block;
+        background: #fff3ee;
+        color: #ff6b3d;
+        font-weight: 600;
+        font-size: 0.85rem;
+        padding: 8px 14px;
+        border-radius: 999px;
+        margin-bottom: 14px;
+    }
+
+    .section-card {
+        background: #ffffff;
+        border-radius: 22px;
+        padding: 22px;
+        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        margin-top: 18px;
+        margin-bottom: 20px;
+    }
+
+    .section-title {
+        font-size: 1.35rem;
+        font-weight: 700;
+        color: #111827;
+        margin-bottom: 8px;
+    }
+
+    .section-note {
+        color: #6b7280;
+        font-size: 0.95rem;
+        margin-bottom: 4px;
+    }
+
+    .metric-box {
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+        border-radius: 16px;
+        padding: 16px 18px;
+        text-align: center;
+    }
+
+    .metric-number {
+        font-size: 1.4rem;
+        font-weight: 800;
+        color: #111827;
+        margin-bottom: 4px;
+    }
+
+    .metric-label {
+        color: #6b7280;
+        font-size: 0.9rem;
+    }
+
+    div[data-testid="stFileUploader"] {
+        background: #fff;
+        border-radius: 18px;
+        padding: 12px;
+        border: 1px dashed #d1d5db;
+    }
+
+    div[data-testid="stDownloadButton"] button,
+    div[data-testid="stButton"] button {
+        width: 100%;
+        border-radius: 14px;
+        padding: 0.7rem 1rem;
+        font-weight: 700;
+        border: none;
+    }
+
+    div[data-testid="stButton"] button {
+        background: linear-gradient(90deg, #ff6b3d 0%, #ff845c 100%);
+        color: white;
+        box-shadow: 0 8px 18px rgba(255, 107, 61, 0.22);
+    }
+
+    div[data-testid="stButton"] button:hover {
+        background: linear-gradient(90deg, #f35f31 0%, #ff7d52 100%);
+        color: white;
+    }
+
+    div[data-testid="stDownloadButton"] button {
+        background: #111827;
+        color: white;
+    }
+
+    div[data-testid="stDownloadButton"] button:hover {
+        background: #000000;
+        color: white;
+    }
+
+    .footer-note {
+        text-align: center;
+        color: #94a3b8;
+        font-size: 0.85rem;
+        margin-top: 24px;
+        margin-bottom: 10px;
+    }
+
+    .stExpander {
+        border-radius: 16px !important;
+        border: 1px solid #e5e7eb !important;
+        background: #ffffff !important;
+    }
+
+    @media (max-width: 768px) {
+        .main-title {
+            font-size: 2.2rem;
+        }
+        .hero-card {
+            padding: 22px 16px 16px 16px;
+        }
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# =========================
+# HELPERS
+# =========================
 def int_to_rgb(color_int):
     if color_int is None:
         return (0, 0, 0)
@@ -19,7 +184,14 @@ def int_to_rgb(color_int):
 
 
 def find_windows_font(pdf_font_name: str):
+    """
+    Works on Windows locally.
+    On Streamlit Cloud / Linux it will simply return None and fallback fonts will be used.
+    """
     if not pdf_font_name:
+        return None
+
+    if os.name != "nt":
         return None
 
     font_name = pdf_font_name.lower()
@@ -96,18 +268,17 @@ def extract_lines(pdf_path):
 def redraw_line(page, bbox, new_text, font_name, font_size, color_int):
     x0, y0, x1, y1 = bbox
 
-    # cover original text area only
+    # clear original text area
     clear_rect = fitz.Rect(x0, y0 - 1, x1 + 5, y1 + 2)
     page.draw_rect(clear_rect, color=(1, 1, 1), fill=(1, 1, 1), overlay=True)
 
     color_rgb = int_to_rgb(color_int)
     font_file = find_windows_font(font_name)
 
-    # allow writing in a wider area till near page end
+    # allow writing in wider area
     page_width = page.rect.width
     write_rect = fitz.Rect(x0, y0 - 1, page_width - 20, y1 + 2)
 
-    # first try: keep original size
     size_try = font_size
     min_size = max(8, font_size - 2)
 
@@ -138,11 +309,10 @@ def redraw_line(page, bbox, new_text, font_name, font_size, color_int):
         except Exception:
             pass
 
-        # clean writing area before retry
         page.draw_rect(write_rect, color=(1, 1, 1), fill=(1, 1, 1), overlay=True)
         size_try -= 0.5
 
-    # final fallback: direct baseline write
+    # final fallback
     try:
         baseline_y = y1 - 2
         if font_file:
@@ -163,7 +333,7 @@ def redraw_line(page, bbox, new_text, font_name, font_size, color_int):
             )
         return True
     except Exception:
-        return False    
+        return False
 
 
 def create_edited_pdf(input_pdf_path, output_pdf_path, edits):
@@ -184,12 +354,34 @@ def create_edited_pdf(input_pdf_path, output_pdf_path, edits):
     doc.close()
 
 
-st.set_page_config(page_title="Style-Aware PDF Editor", layout="wide")
-st.title("Style-Aware PDF Editor")
-st.caption("Computer-generated PDFs only")
+# =========================
+# UI HEADER
+# =========================
+st.markdown("""
+<div class="hero-card">
+    <div class="mini-badge">📄 Smart PDF Utility</div>
+    <div class="main-title">Easy PDF Editor</div>
+    <div class="sub-title">
+        Edit computer-generated PDFs with cleaner layout, mobile-friendly experience, and downloadable output.
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
-uploaded_file = st.file_uploader("Upload PDF", type=["pdf"])
+# =========================
+# UPLOAD SECTION
+# =========================
+st.markdown("""
+<div class="section-card">
+    <div class="section-title">Upload PDF</div>
+    <div class="section-note">Supported format: PDF only • Best results on computer-generated PDFs</div>
+</div>
+""", unsafe_allow_html=True)
 
+uploaded_file = st.file_uploader("Choose your PDF file", type=["pdf"], label_visibility="collapsed")
+
+# =========================
+# MAIN APP
+# =========================
 if uploaded_file:
     input_path = os.path.join(UPLOAD_FOLDER, uploaded_file.name)
 
@@ -204,13 +396,46 @@ if uploaded_file:
         st.error("No editable text found in this PDF.")
         st.stop()
 
-    st.subheader("Edit Lines")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.markdown(f"""
+        <div class="metric-box">
+            <div class="metric-number">{len(lines)}</div>
+            <div class="metric-label">Detected Lines</div>
+        </div>
+        """, unsafe_allow_html=True)
+    with col2:
+        st.markdown(f"""
+        <div class="metric-box">
+            <div class="metric-number">PDF</div>
+            <div class="metric-label">{uploaded_file.name}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    with col3:
+        st.markdown(f"""
+        <div class="metric-box">
+            <div class="metric-number">Ready</div>
+            <div class="metric-label">For Editing</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("""
+    <div class="section-card">
+        <div class="section-title">Edit Detected Lines</div>
+        <div class="section-note">Expand a line, update the text, then generate the edited PDF.</div>
+    </div>
+    """, unsafe_allow_html=True)
+
     edits = []
 
     for i, line in enumerate(lines):
-        with st.expander(f"Page {line['page'] + 1} | Line {i + 1} | {line['text'][:80]}"):
-            st.write(f"Detected font: {line['font']}")
-            st.write(f"Detected size: {round(line['size'], 2)}")
+        title_text = line["text"][:80] + ("..." if len(line["text"]) > 80 else "")
+        with st.expander(f"Page {line['page'] + 1} • Line {i + 1} • {title_text}"):
+            info1, info2 = st.columns(2)
+            with info1:
+                st.caption(f"Detected font: {line['font']}")
+            with info2:
+                st.caption(f"Detected size: {round(line['size'], 2)}")
 
             new_text = st.text_input(
                 f"Edit Line {i + 1}",
@@ -228,7 +453,14 @@ if uploaded_file:
                     "new_text": new_text
                 })
 
-    st.write(f"Total changed lines: {len(edits)}")
+    st.markdown("""
+    <div class="section-card">
+        <div class="section-title">Final Output</div>
+        <div class="section-note">Generate the updated PDF and download it instantly.</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.info(f"Total changed lines: {len(edits)}")
 
     if st.button("Generate Edited PDF"):
         output_path = os.path.join(OUTPUT_FOLDER, f"edited_{uploaded_file.name}")
@@ -243,3 +475,17 @@ if uploaded_file:
             )
 
         st.success("Edited PDF created successfully.")
+
+else:
+    st.markdown("""
+    <div class="section-card">
+        <div class="section-title">How it works</div>
+        <div class="section-note">
+            1. Upload a PDF<br>
+            2. Expand and edit the detected text lines<br>
+            3. Generate and download the updated PDF
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+st.markdown('<div class="footer-note">Built for quick PDF text updates on desktop and mobile.</div>', unsafe_allow_html=True)
