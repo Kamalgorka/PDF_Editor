@@ -183,34 +183,32 @@ def int_to_rgb(color_int):
     return (r / 255, g / 255, b / 255)
 
 
-def find_windows_font(pdf_font_name: str):
-    """
-    Works on Windows locally.
-    On Streamlit Cloud / Linux it will simply return None and fallback fonts will be used.
-    """
+def find_cloud_font(pdf_font_name: str):
     if not pdf_font_name:
         return None
 
-    if os.name != "nt":
-        return None
-
     font_name = pdf_font_name.lower()
-    font_dir = r"C:\Windows\Fonts"
+    font_dir = "fonts"
 
-    candidates = []
-
-    if "times" in font_name:
-        candidates = ["times.ttf", "times new roman.ttf", "timesbd.ttf", "timesi.ttf"]
-    elif "arial" in font_name or "helvetica" in font_name:
-        candidates = ["arial.ttf", "arialbd.ttf", "ariali.ttf"]
-    elif "calibri" in font_name:
-        candidates = ["calibri.ttf", "calibrib.ttf", "calibrii.ttf"]
-    elif "cambria" in font_name:
-        candidates = ["cambria.ttf", "cambriab.ttf", "cambriai.ttf"]
-    elif "courier" in font_name:
-        candidates = ["cour.ttf", "courbd.ttf", "couri.ttf"]
+    if "times" in font_name or "serif" in font_name:
+        candidates = [
+            "LiberationSerif-Regular.ttf",
+            "LiberationSerif-Bold.ttf"
+        ]
+    elif "arial" in font_name or "helvetica" in font_name or "sans" in font_name:
+        candidates = [
+            "LiberationSans-Regular.ttf",
+            "LiberationSans-Bold.ttf"
+        ]
+    elif "courier" in font_name or "mono" in font_name:
+        candidates = [
+            "LiberationMono-Regular.ttf"
+        ]
     else:
-        candidates = ["arial.ttf", "calibri.ttf", "times.ttf"]
+        candidates = [
+            "LiberationSans-Regular.ttf",
+            "LiberationSerif-Regular.ttf"
+        ]
 
     for c in candidates:
         p = os.path.join(font_dir, c)
@@ -273,7 +271,7 @@ def redraw_line(page, bbox, new_text, font_name, font_size, color_int):
     page.draw_rect(clear_rect, color=(1, 1, 1), fill=(1, 1, 1), overlay=True)
 
     color_rgb = int_to_rgb(color_int)
-    font_file = find_windows_font(font_name)
+    font_file = find_cloud_font(font_name)
 
     # allow writing in wider area
     page_width = page.rect.width
